@@ -847,15 +847,28 @@ class TTSEngineManager(BaseModule):
             model_path = (
                 next(model_dir.glob("*.onnx"), None) if model_dir.exists() else None
             )
+            # Pick a voices FILE deterministically: glob("*voices*") also
+            # matches the sibling "voices/" directory (PyTorch voice files);
+            # passing a directory to Kokoro -> np.load() fails on Windows
+            # with PermissionError: [Errno 13] Permission denied.
             voices_path = (
-                next(model_dir.glob("*voices*"), None) if model_dir.exists() else None
+                next(
+                    iter(
+                        sorted(
+                            p for p in model_dir.glob("*voices*") if p.is_file()
+                        )
+                    ),
+                    None,
+                )
+                if model_dir.exists()
+                else None
             )
-            if model_path is None:
-                self.log.warning("Kokoro models not found under %s", model_dir)
+            if model_path is None or voices_path is None:
+                self.log.warning(
+                    "Kokoro model/voices file not found under %s", model_dir
+                )
                 return False
-            self.kokoro_instance = Kokoro(
-                str(model_path), str(voices_path) if voices_path else str(model_path)
-            )
+            self.kokoro_instance = Kokoro(str(model_path), str(voices_path))
             self.log.info("Kokoro loaded lazily from %s", model_path)
             return True
         except Exception as exc:  # noqa: BLE001
