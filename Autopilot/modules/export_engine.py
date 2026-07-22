@@ -240,6 +240,25 @@ class ExportEngine(BaseModule):
         )
         codec = codec_response["data"]["codec"]
 
+        # --- Temporary diagnostic: force libx264 to isolate Intel QSV
+        # render hang.  If a hardware encoder was selected, override it
+        # with the software encoder so we can confirm whether the hang
+        # originates in the HW path.  Remove once root-caused.
+        _HW_ENCODERS = {
+            "h264_qsv", "hevc_qsv",
+            "h264_nvenc", "hevc_nvenc",
+            "h264_amf", "hevc_amf",
+            "h264_videotoolbox", "hevc_videotoolbox",
+        }
+        if codec in _HW_ENCODERS:
+            self.log.warning(
+                "HARDWARE ENCODING TEMPORARILY DISABLED for scene rendering "
+                "(was %s, forcing libx264) to diagnose a render hang. "
+                "Remove this override once the root cause is identified.",
+                codec,
+            )
+            codec = "libx264"
+
         graph, extra_inputs, out_label = self._build_scene_graph(
             width,
             height,
