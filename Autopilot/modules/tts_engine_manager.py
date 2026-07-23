@@ -1024,6 +1024,31 @@ class TTSEngineManager(BaseModule):
                 )
                 frames.extend(struct.pack("<h", value))
             handle.writeframes(bytes(frames))
+            # DIAGNOSTIC
+            try:
+                with wave.open(str(path), "r") as diag:
+                    print("WAV DIAG channels:", diag.getnchannels(), "width:", diag.getsampwidth(), "rate:", diag.getframerate(), "frames:", diag.getnframes())
+                    b = diag.readframes(min(100, diag.getnframes()))
+                    print("First 100 frames bytes len:", len(b), "hex:", b[:16].hex())
+            except Exception as e:
+                print("DIAG REOPEN FAILED:", e)
+            # SAMPLE DIAGNOSTIC
+            try:
+                with wave.open(str(path), "r") as d:
+                    d.setnchannels(1)
+                    frames_all = d.readframes(d.getnframes())
+                    import array, math
+                    samples = array.array('h', frames_all)
+                    vals = [s for s in samples]
+                    if vals:
+                        minv = min(vals)
+                        maxv = max(vals)
+                        rms = math.sqrt(sum((v/32768.0)**2 for v in vals)/len(vals))
+                        zero_pct = sum(1 for v in vals if v==0)*100.0/len(vals)
+                        print("SAMPLE STATS min:", minv, "max:", maxv, "rms:", rms, "zero%:", zero_pct)
+                        print("FIRST 50 SAMPLES:", vals[:50])
+            except Exception as ex:
+                print("SAMPLE READ ERROR:", ex)
 
     def _write_wav_samples(self, path: str, samples: Any, sample_rate: int) -> None:
         """Write numpy/list samples to WAV via soundfile or wave."""
@@ -1047,6 +1072,14 @@ class TTSEngineManager(BaseModule):
             handle.setsampwidth(2)
             handle.setframerate(sample_rate)
             handle.writeframes(pcm.tobytes())
+            # DIAGNOSTIC
+            try:
+                with wave.open(path, "r") as diag:
+                    print("WAV DIAG2 channels:", diag.getnchannels(), "width:", diag.getsampwidth(), "rate:", diag.getframerate(), "frames:", diag.getnframes())
+                    b = diag.readframes(min(100, diag.getnframes()))
+                    print("First 100 bytes len:", len(b), "hex:", b[:16].hex())
+            except Exception as e:
+                print("DIAG2 REOPEN FAILED:", e)
 
     def _wav_duration(self, path: Path) -> float:
         """Return WAV duration in seconds."""
